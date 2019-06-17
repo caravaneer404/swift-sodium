@@ -47,6 +47,40 @@ extension SecretBox {
     }
 
     /**
+     Encrypts a message with a shared secret key.
+
+     - Parameter message: The message to encrypt.
+     - Parameter secretKey: The shared secret key.
+     - Parameter nonce: The nonce for encryption.
+
+     - Returns: The authenticated ciphertext and encryption nonce.
+     */
+    public func seal(message: Data, secretKey: Key, nonce: Nonce) -> (authenticatedCipherText: Data, nonce: Nonce)? {
+        if secretKey.count != KeyBytes {
+            return nil
+        }
+
+        let authenticatedCipherPtr = UnsafeMutablePointer<UInt8>.allocate(capacity: message.count + MacBytes)
+        let messagePtr = UnsafeMutablePointer<UInt8>.allocate(capacity: message.count)
+        message.copyBytes(to: messagePtr, count: message.count)
+
+        let secretKeyPtr: UnsafeMutablePointer = UnsafeMutablePointer(mutating: secretKey)
+        let noncePtr: UnsafeMutablePointer = UnsafeMutablePointer(mutating: nonce)
+
+        let result = crypto_secretbox_easy(authenticatedCipherPtr,
+                                           messagePtr,
+                                           UInt64(message.count),
+                                           noncePtr,
+                                           secretKeyPtr)
+        if result != 0 {
+            return nil
+        }
+
+        let authenticatedCipherText = Data(bytes: authenticatedCipherPtr, count: message.count + MacBytes)
+        return (authenticatedCipherText: authenticatedCipherText, nonce: nonce)
+    }
+
+    /**
      Encrypts a message with a shared secret key (detached mode).
 
      - Parameter message: The message to encrypt.
